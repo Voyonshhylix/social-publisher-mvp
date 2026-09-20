@@ -32,6 +32,7 @@ function App() {
   const [content, setContent] = useState('');
   const [selected, setSelected] = useState([]);
   const [file, setFile] = useState(null);
+  const [mediaUrl, setMediaUrl] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState('');
   const [results, setResults] = useState([]);
@@ -55,13 +56,14 @@ function App() {
     setResults([]);
     if (!content.trim()) return setNotice('Enter post content before publishing.');
     if (!selected.length) return setNotice('Select at least one platform before publishing.');
-    if (file && file.size > 4 * 1024 * 1024) return setNotice('This Vercel MVP accepts media up to 4 MB. Use a smaller file for this release.');
+    if (file && mediaUrl.trim()) return setNotice('Use either a local file or a public media URL, not both.');
+    if (file && file.size > 3 * 1024 * 1024) return setNotice('For a local file, use up to 3 MB. For larger videos, paste a public direct media URL below.');
     setPublishing(true);
     try {
       const media = file ? { name: file.name, type: file.type, data: await readFile(file) } : null;
       const response = await fetch('/api/publish', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: content.trim(), platforms: selected, media })
+        body: JSON.stringify({ content: content.trim(), platforms: selected, media, mediaUrl: mediaUrl.trim() })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Publishing request failed.');
@@ -94,7 +96,7 @@ function App() {
       <form className="composer card" onSubmit={publish}>
         <label htmlFor="content">Post content</label>
         <textarea id="content" value={content} onChange={e => setContent(e.target.value)} placeholder="Write the post you want to share…" rows="9" />
-        <div className="form-row"><label htmlFor="media">Image or video <small>optional · up to 4 MB</small></label><input id="media" type="file" accept="image/*,video/*" onChange={e => setFile(e.target.files?.[0] || null)} />{file && <p className="file-name">Attached: {file.name}</p>}</div>
+        <div className="form-row"><label htmlFor="media">Image or video <small>optional · local file up to 3 MB</small></label><input id="media" type="file" accept="image/*,video/*" onChange={e => setFile(e.target.files?.[0] || null)} />{file && <p className="file-name">Attached: {file.name}</p>}<label className="url-label" htmlFor="media-url">Or use a public direct media URL <small>recommended for larger videos</small></label><input className="url-input" id="media-url" type="url" value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} placeholder="https://example.com/video.mp4" /></div>
         <fieldset><legend>Select platforms</legend><div className="platforms">{PLATFORMS.map(platform => <label className={'platform ' + (selected.includes(platform.id) ? 'active' : '')} key={platform.id}><input type="checkbox" checked={selected.includes(platform.id)} onChange={() => toggle(platform.id)} /><span><b>{platform.name}</b><small>{platform.note}</small></span></label>)}</div></fieldset>
         {notice && <p className="notice" role="status">{notice}</p>}
         <button className="publish" disabled={publishing}>{publishing ? 'Publishing…' : `Publish now${selected.length ? ` to ${selected.length}` : ''}`}</button>
